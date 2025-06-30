@@ -1,11 +1,9 @@
-# main.py - Главный файл игры-платформера
-
 import pygame
 import sys
 from module.config import WIDTH, HEIGHT, FPS, TILE_SIZE
 from module.tank import Player
-from module.tank_move import handle_input, update_player, handle_events
-from module.prorisouka import create_level_objects, render_game, initialize_display
+from module.tank_move import handle_input, update_player, update_enemies, handle_events
+from module.prorisouka import create_level_objects_and_spawns, render_game, initialize_display
 
 def main():
     # --- Инициализация ---
@@ -14,13 +12,9 @@ def main():
     clock = pygame.time.Clock()
 
     # --- Создание игровых объектов ---
-    walls, bushes, clouds = create_level_objects()
+    walls, bushes, clouds, player, enemies = create_level_objects_and_spawns()
     
-    # Найдём хорошую стартовую позицию (где есть твёрдая земля)
-    start_x = TILE_SIZE * 2
-    start_y = TILE_SIZE * 13  # Ближе к низу, чтобы танк упал на платформу
-    
-    player = Player(start_x, start_y)
+    # Создаём группу для игрока
     player_group = pygame.sprite.GroupSingle(player)
 
     # --- Игровой цикл ---
@@ -36,9 +30,10 @@ def main():
         
         # --- Обновление ---
         update_player(player, keys, walls, bushes, clouds)
+        update_enemies(enemies, walls, bushes, clouds)
         
         # --- Отрисовка ---
-        render_game(screen, walls, bushes, clouds, player_group)
+        render_game(screen, walls, bushes, clouds, player_group, enemies)
 
     pygame.quit()
     sys.exit()

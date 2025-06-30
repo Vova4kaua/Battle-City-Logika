@@ -1,5 +1,3 @@
-# tank.py - Класс танка игрока с гравитацией (исправлен автоподъём)
-
 import pygame
 import os
 from .config import (TILE_SIZE, GREEN, TANK_IMAGE_PATH, WALL_IMAGE_PATH, 
@@ -266,3 +264,117 @@ class Cloud(pygame.sprite.Sprite):
             pygame.draw.circle(self.image, cloud_shadow, (24, 18), 4)
             
         self.rect = self.image.get_rect(topleft=(x, y))
+
+class EnemyTank(pygame.sprite.Sprite):
+    """Вражеский танк без ИИ - просто стоит"""
+    def __init__(self, x, y):
+        super().__init__()
+        self.direction = 'LEFT'
+        
+        # Физика (пока не используется, но может пригодиться)
+        self.velocity_x = 0
+        self.velocity_y = 1
+        self.on_ground = False
+        
+        # Попытка загрузить изображение танка
+        try:
+            self.original_image = pygame.image.load(TANK_IMAGE_PATH)
+            self.original_image = pygame.transform.scale(self.original_image, (TILE_SIZE, TILE_SIZE))
+        except:
+            # Создаем вражеский танк (красного цвета)
+            self.original_image = pygame.Surface((TILE_SIZE, TILE_SIZE))
+            self.original_image.fill((0, 0, 0, 0))
+            
+            # Корпус танка (красный)
+            pygame.draw.rect(self.original_image, (150, 0, 0), (6, 12, 20, 12))
+            # Башня танка (тёмно-красный)
+            pygame.draw.rect(self.original_image, (180, 0, 0), (10, 8, 12, 10))
+            # Дуло танка (тёмно-красный)
+            pygame.draw.rect(self.original_image, (120, 0, 0), (22, 11, 8, 3))
+            # Нижняя гусеница
+            pygame.draw.rect(self.original_image, (60, 60, 60), (4, 22, 24, 4))
+            # Верхняя гусеница
+            pygame.draw.rect(self.original_image, (60, 60, 60), (4, 6, 24, 4))
+            
+            # Колёса гусениц
+            for i in range(6, 26, 4):
+                pygame.draw.circle(self.original_image, (40, 40, 40), (i, 24), 2)
+                pygame.draw.circle(self.original_image, (40, 40, 40), (i, 8), 2)
+            
+        self.image = self.original_image.copy()
+        self.rect = self.image.get_rect(topleft=(x, y))
+        
+        # Поворачиваем влево по умолчанию
+        self.rotate_tank()
+
+    def update(self, walls, bushes, clouds):
+        """Обновление вражеского танка (пока просто применяем гравитацию)"""
+        # Применение гравитации
+        self.velocity_y += GRAVITY
+        if self.velocity_y > MAX_FALL_SPEED:
+            self.velocity_y = MAX_FALL_SPEED
+
+        # Вертикальное движение (падение)
+        new_y = self.rect.y + self.velocity_y
+        
+        # Проверка на границы экрана
+        if new_y < 0:
+            new_y = 0
+            self.velocity_y = 0
+        elif new_y > 480 - TILE_SIZE:
+            new_y = 480 - TILE_SIZE
+            self.velocity_y = 0
+            self.on_ground = True
+
+        # Проверка коллизий с твёрдыми блоками (стены)
+        temp_rect = pygame.Rect(self.rect.x, new_y, self.rect.width, self.rect.height)
+        collision_wall = False
+        
+        for wall in walls:
+            if temp_rect.colliderect(wall.rect):
+                collision_wall = True
+                if self.velocity_y > 0:  # Падение вниз
+                    new_y = wall.rect.top - self.rect.height
+                    self.velocity_y = 0
+                    self.on_ground = True
+                break
+        
+        # Проверка коллизий с облаками (платформы)
+        if not collision_wall:
+            temp_rect = pygame.Rect(self.rect.x, new_y, self.rect.width, self.rect.height)
+            
+            for cloud in clouds:
+                if temp_rect.colliderect(cloud.rect):
+                    if self.velocity_y > 0 and self.rect.bottom <= cloud.rect.top + 5:
+                        new_y = cloud.rect.top - self.rect.height
+                        self.velocity_y = 0
+                        self.on_ground = True
+                        break
+
+        # Применение движения
+        self.rect.y = new_y
+        
+        # Проверка на земле ли танк
+        self.on_ground = False
+        ground_check_rect = pygame.Rect(self.rect.x, self.rect.y + 1, self.rect.width, self.rect.height)
+        
+        for wall in walls:
+            if ground_check_rect.colliderect(wall.rect):
+                self.on_ground = True
+                break
+        
+        if not self.on_ground:
+            for cloud in clouds:
+                if ground_check_rect.colliderect(cloud.rect) and self.velocity_y >= 0:
+                    self.on_ground = True
+                    break
+        
+        if self.rect.bottom >= 480:
+            self.on_ground = True
+    
+    def rotate_tank(self):
+        """Поворот вражеского танка"""
+        if self.direction == 'RIGHT':
+            self.image = self.original_image
+        elif self.direction == 'LEFT':
+            self.image = pygame.transform.flip(self.original_image, True, False)

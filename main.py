@@ -1,102 +1,47 @@
+# main.py - Главный файл игры-платформера
+
 import pygame
 import sys
+from module.config import WIDTH, HEIGHT, FPS, TILE_SIZE
+from module.tank import Player
+from module.tank_move import handle_input, update_player, handle_events
+from module.prorisouka import create_level_objects, render_game, initialize_display
 
-# --- Налаштування ---
-WIDTH, HEIGHT = 640, 480
-TILE_SIZE = 40
-FPS = 60
+def main():
+    # --- Инициализация ---
+    pygame.init()
+    screen = initialize_display(WIDTH, HEIGHT, "Battle Tank Platformer")
+    clock = pygame.time.Clock()
 
-# --- Ініціалізація ---
-pygame.init()
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Battle City Remake")
-clock = pygame.time.Clock()
+    # --- Создание игровых объектов ---
+    walls, bushes, clouds = create_level_objects()
+    
+    # Найдём хорошую стартовую позицию (где есть твёрдая земля)
+    start_x = TILE_SIZE * 2
+    start_y = TILE_SIZE * 13  # Ближе к низу, чтобы танк упал на платформу
+    
+    player = Player(start_x, start_y)
+    player_group = pygame.sprite.GroupSingle(player)
 
-# --- Кольори ---
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-GRAY = (100, 100, 100)
-GREEN = (0, 255, 0)
+    # --- Игровой цикл ---
+    running = True
+    while running:
+        clock.tick(FPS)
+        
+        # --- Обработка событий ---
+        running = handle_events()
+        
+        # --- Обработка ввода ---
+        keys = handle_input()
+        
+        # --- Обновление ---
+        update_player(player, keys, walls, bushes, clouds)
+        
+        # --- Отрисовка ---
+        render_game(screen, walls, bushes, clouds, player_group)
 
-# --- Клас гравця ---
-class Player(pygame.sprite.Sprite):
-    def __init__(self, x, y):
-        super().__init__()
-        self.image = pygame.Surface((TILE_SIZE, TILE_SIZE))
-        self.image.fill(GREEN)
-        self.rect = self.image.get_rect(topleft=(x, y))
-        self.speed = 3
+    pygame.quit()
+    sys.exit()
 
-    def update(self, keys, walls):
-        dx, dy = 0, 0
-        if keys[pygame.K_LEFT]:
-            dx = -self.speed
-        if keys[pygame.K_RIGHT]:
-            dx = self.speed
-        if keys[pygame.K_UP]:
-            dy = -self.speed
-        if keys[pygame.K_DOWN]:
-            dy = self.speed
-
-        # Перевірка на стіни
-        self.rect.x += dx
-        for wall in walls:
-            if self.rect.colliderect(wall.rect):
-                self.rect.x -= dx
-        self.rect.y += dy
-        for wall in walls:
-            if self.rect.colliderect(wall.rect):
-                self.rect.y -= dy
-
-# --- Клас стіни ---
-class Wall(pygame.sprite.Sprite):
-    def __init__(self, x, y):
-        super().__init__()
-        self.image = pygame.Surface((TILE_SIZE, TILE_SIZE))
-        self.image.fill(GRAY)
-        self.rect = self.image.get_rect(topleft=(x, y))
-
-# --- Побудова мапи ---
-level = [
-    "WWWWWWWWWWWW",
-    "W          W",
-    "W   WW     W",
-    "W          W",
-    "W     W    W",
-    "W          W",
-    "WWWWWWWWWWWW"
-]
-
-walls = pygame.sprite.Group()
-for y, row in enumerate(level):
-    for x, col in enumerate(row):
-        if col == "W":
-            wall = Wall(x * TILE_SIZE, y * TILE_SIZE)
-            walls.add(wall)
-
-# --- Створення гравця ---
-player = Player(60, 60)
-player_group = pygame.sprite.GroupSingle(player)
-
-# --- Ігровий цикл ---
-running = True
-while running:
-    clock.tick(FPS)
-    keys = pygame.key.get_pressed()
-
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-
-    # Оновлення
-    player.update(keys, walls)
-
-    # Відображення
-    screen.fill(BLACK)
-    walls.draw(screen)
-    player_group.draw(screen)
-
-    pygame.display.flip()
-
-pygame.quit()
-sys.exit()
+if __name__ == "__main__":
+    main()
